@@ -1,7 +1,6 @@
-import WebSocket from "ws";
-import http from "http";
-import dotenv from "dotenv";
-dotenv.config();
+const WebSocket = require("ws");
+const http = require("http");
+require("dotenv").config();
 
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
@@ -15,7 +14,9 @@ wss.on("connection", (clientSocket) => {
     },
   });
 
-  openaiSocket.on("open", () => console.log("✅ Connected to OpenAI"));
+  openaiSocket.on("open", () => {
+    console.log("✅ Connected to OpenAI");
+  });
 
   openaiSocket.on("message", (data) => {
     clientSocket.send(data);
@@ -25,8 +26,13 @@ wss.on("connection", (clientSocket) => {
     openaiSocket.send(data);
   });
 
-  clientSocket.on("close", () => openaiSocket.close());
-  openaiSocket.on("close", () => clientSocket.close());
+  clientSocket.on("close", () => {
+    openaiSocket.close();
+  });
+
+  openaiSocket.on("close", () => {
+    clientSocket.close();
+  });
 });
 
 server.listen(process.env.PORT || 3000, () => {
