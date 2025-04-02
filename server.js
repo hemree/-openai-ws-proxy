@@ -17,16 +17,21 @@ wss.on("connection", (clientSocket) => {
   let isOpenAIConnected = false
   const messageQueue = []
 
-  // ✅ OpenAI bağlantısı açıldığında sıradakileri gönder
   openaiSocket.on("open", () => {
     console.log("✅ Connected to OpenAI")
     isOpenAIConnected = true
-    messageQueue.forEach((msg) => {
-      openaiSocket.send(msg)
+
+    messageQueue.forEach((msg, i) => {
+      try {
+        const parsed = typeof msg === "string" ? msg : msg.toString()
+        console.log(`🚀 Sending queued message ${i + 1}:`, parsed)
+        openaiSocket.send(parsed)
+      } catch (err) {
+        console.error(`❌ Failed to send queued message ${i + 1}:`, err.message)
+      }
     })
   })
 
-  // ✅ Client'tan gelen mesajlar
   clientSocket.on("message", (data) => {
     console.log("📥 From frontend:", data.toString())
 
@@ -38,21 +43,17 @@ wss.on("connection", (clientSocket) => {
     }
   })
 
-  // ✅ OpenAI'den gelen yanıtı client'a gönder
   openaiSocket.on("message", (data) => {
     try {
       const message = data.toString()
       console.log("📥 From OpenAI:", message)
       clientSocket.send(message)
     } catch (err) {
-      console.error("❌ Failed to send message to client:", err)
+      console.error("❌ Failed to send message to client:", err.message)
     }
   })
 
-  clientSocket.on("close", () => {
-    openaiSocket.close()
-  })
-
+  clientSocket.on("close", () => openaiSocket.close())
   openaiSocket.on("close", (code, reason) => {
     console.log(`❌ OpenAI WebSocket closed: Code=${code}, Reason=${reason || "No reason"}`)
     clientSocket.close()
