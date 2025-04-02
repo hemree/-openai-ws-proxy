@@ -1,40 +1,48 @@
-const WebSocket = require("ws");
-const http = require("http");
-require("dotenv").config();
-
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
-
 wss.on("connection", (clientSocket) => {
-  console.log("🔌 Client connected");
+  console.log("🔌 Client connected")
 
   const openaiSocket = new WebSocket("wss://api.openai.com/v1/realtime", {
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
-  });
+  })
 
+  let isOpenAIConnected = false
+  const messageQueue = []
+
+  // 1️⃣ OpenAI WS açılınca kuyruktakileri gönder
   openaiSocket.on("open", () => {
-    console.log("✅ Connected to OpenAI");
-  });
+    console.log("✅ Connected to OpenAI")
+    isOpenAIConnected = true
 
-  openaiSocket.on("message", (data) => {
-    clientSocket.send(data);
-  });
+    // Kuyruktaki mesajları sırayla gönder
+    messageQueue.forEach((msg) => {
+      openaiSocket.send(msg)
+    })
+  })
 
+  // 2️⃣ Frontend'ten gelen mesajı sıraya al
   clientSocket.on("message", (data) => {
-    openaiSocket.send(data);
-  });
+    console.log("📥 From frontend:", data.toString())
 
-  clientSocket.on("close", () => {
-    openaiSocket.close();
-  });
+    if (isOpenAIConnected) {
+      openaiSocket.send(data)
+    } else {
+      console.log("⏳ OpenAI not ready, queuing message")
+      messageQueue.push(data)
+    }
+  })
 
-  openaiSocket.on("close", () => {
-    clientSocket.close();
-  });
-});
+  // 3️⃣ OpenAI → Client
+  openaiSocket.on("message", (data) => {
+    clientSocket.send(data)
+  })
 
-server.listen(process.env.PORT || 3000, () => {
-  console.log("🚀 WebSocket Proxy server running");
-});
+  // 4️⃣ Bağlantı kapanınca temizlik
+  clientSocket.on("close", () => openaiSocket.close())
+  openaiSocket.on("close", () => clientSocket.close())
+
+  openaiSocket.on("error", (err) => {
+    console.error("❌ OpenAI WebSocket error:", err.message)
+  })
+})
