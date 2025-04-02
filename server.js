@@ -1,3 +1,10 @@
+const WebSocket = require("ws")
+const http = require("http")
+require("dotenv").config()
+
+const server = http.createServer()
+const wss = new WebSocket.Server({ server })
+
 wss.on("connection", (clientSocket) => {
   console.log("🔌 Client connected")
 
@@ -10,21 +17,14 @@ wss.on("connection", (clientSocket) => {
   let isOpenAIConnected = false
   const messageQueue = []
 
-  // 1️⃣ OpenAI WS açılınca kuyruktakileri gönder
   openaiSocket.on("open", () => {
     console.log("✅ Connected to OpenAI")
     isOpenAIConnected = true
-
-    // Kuyruktaki mesajları sırayla gönder
-    messageQueue.forEach((msg) => {
-      openaiSocket.send(msg)
-    })
+    messageQueue.forEach((msg) => openaiSocket.send(msg))
   })
 
-  // 2️⃣ Frontend'ten gelen mesajı sıraya al
   clientSocket.on("message", (data) => {
     console.log("📥 From frontend:", data.toString())
-
     if (isOpenAIConnected) {
       openaiSocket.send(data)
     } else {
@@ -33,16 +33,20 @@ wss.on("connection", (clientSocket) => {
     }
   })
 
-  // 3️⃣ OpenAI → Client
   openaiSocket.on("message", (data) => {
     clientSocket.send(data)
   })
 
-  // 4️⃣ Bağlantı kapanınca temizlik
   clientSocket.on("close", () => openaiSocket.close())
   openaiSocket.on("close", () => clientSocket.close())
 
   openaiSocket.on("error", (err) => {
     console.error("❌ OpenAI WebSocket error:", err.message)
   })
+})
+
+// Sunucuyu dinlemeye başla
+const PORT = process.env.PORT || 3000
+server.listen(PORT, () => {
+  console.log(`🚀 WebSocket Proxy server running on port ${PORT}`)
 })
