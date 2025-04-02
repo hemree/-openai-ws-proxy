@@ -1,63 +1,45 @@
-const WebSocket = require("ws");
-const http = require("http");
-require("dotenv").config();
+// server.js - Ephemeral Key sağlayan Express sunucusu
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const PORT = process.env.PORT || 8080;
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
+dotenv.config();
 
-wss.on("connection", (clientSocket) => {
-  console.log("🔌 Client connected");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-  const openaiSocket = new WebSocket(
-    "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
-    {
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Ephemeral token endpoint
+app.get('/session', async (req, res) => {
+  try {
+    const model = req.query.model || 'gpt-4o-realtime-preview-2024-12-17';
+    const voice = req.query.voice || 'nova'; // veya "verse"
+
+    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "OpenAI-Beta": "realtime=v1",
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-    }
-  );
+      body: JSON.stringify({ model, voice }),
+    });
 
-  let isOpenAIReady = false;
-  const queue = [];
-
-  openaiSocket.on("open", () => {
-    console.log("✅ Connected to OpenAI");
-    isOpenAIReady = true;
-    for (const msg of queue) {
-      openaiSocket.send(msg);
-    }
-  });
-
-  openaiSocket.on("message", (data) => {
-    clientSocket.send(data);
-  });
-
-  clientSocket.on("message", (data) => {
-    console.log("📥 From frontend:", data.toString());
-    if (isOpenAIReady) {
-      openaiSocket.send(data);
-    } else {
-      console.log("⏳ OpenAI not ready, queuing message");
-      queue.push(data);
-    }
-  });
-
-  clientSocket.on("close", () => {
-    openaiSocket.close();
-  });
-
-  openaiSocket.on("close", (code, reason) => {
-    console.log(`❌ OpenAI WebSocket closed: Code=${code} Reason=${reason}`);
-    clientSocket.close();
-  });
-
-  openaiSocket.on("error", (err) => {
-    console.error("❌ OpenAI WebSocket error:", err);
-  });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Ephemeral Token Error:', err);
+    res.status(500).json({ error: 'Token fetch error', message: err.message });
+  }
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 WebSocket Proxy server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`✅ Realtime Proxy Server running on port ${PORT}`);
 });
