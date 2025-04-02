@@ -21,7 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/session', async (req, res) => {
   try {
     const model = req.query.model || 'gpt-4o-realtime-preview-2024-12-17';
-    const voice = req.query.voice || 'nova'; // veya "verse"
+    const voice = req.query.voice || 'verse'; // veya "verse"
 
     const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
       method: 'POST',
