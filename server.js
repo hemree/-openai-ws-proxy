@@ -1,11 +1,10 @@
-import WebSocket, { WebSocketServer } from "ws";
-import http from "http";
-import dotenv from "dotenv";
-dotenv.config();
+const WebSocket = require("ws");
+const http = require("http");
+require("dotenv").config();
 
 const PORT = process.env.PORT || 8080;
 const server = http.createServer();
-const wss = new WebSocketServer({ server });
+const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (clientSocket) => {
   console.log("🔌 Client connected");
@@ -26,8 +25,6 @@ wss.on("connection", (clientSocket) => {
   openaiSocket.on("open", () => {
     console.log("✅ Connected to OpenAI");
     isOpenAIReady = true;
-
-    // Kuyruğa alınan mesajları gönder
     for (const msg of queue) {
       openaiSocket.send(msg);
     }
@@ -39,7 +36,6 @@ wss.on("connection", (clientSocket) => {
 
   clientSocket.on("message", (data) => {
     console.log("📥 From frontend:", data.toString());
-
     if (isOpenAIReady) {
       openaiSocket.send(data);
     } else {
